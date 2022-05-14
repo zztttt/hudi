@@ -94,11 +94,16 @@ public class HoodieList<T> extends HoodieData<T> {
   @Override
   public <O> HoodieData<O> map(SerializableFunction<T, O> func) {
     return HoodieList.of(listData.stream().parallel()
-        .map(throwingMapWrapper(func)).collect(Collectors.toList()));
+            .map(throwingMapWrapper(func)).collect(Collectors.toList()));
   }
 
   @Override
   public <O> HoodieData<O> mapPartitions(SerializableFunction<Iterator<T>, Iterator<O>> func, boolean preservesPartitioning) {
+    return mapPartitions(func);
+  }
+
+  @Override
+  public <O> HoodieData<O> mapPartitions(SerializableFunction<Iterator<T>, Iterator<O>> func) {
     List<O> result = new ArrayList<>();
     throwingMapWrapper(func).apply(listData.iterator()).forEachRemaining(result::add);
     return HoodieList.of(result);
@@ -140,16 +145,16 @@ public class HoodieList<T> extends HoodieData<T> {
   @Override
   public <O> HoodieData<T> distinctWithKey(SerializableFunction<T, O> keyGetter, int parallelism) {
     return mapToPair(i -> Pair.of(keyGetter.apply(i), i))
-        .reduceByKey((value1, value2) -> value1, parallelism)
-        .values();
+            .reduceByKey((value1, value2) -> value1, parallelism)
+            .values();
   }
 
   @Override
   public HoodieData<T> filter(SerializableFunction<T, Boolean> filterFunc) {
     return HoodieList.of(listData
-        .stream()
-        .filter(i -> throwingMapWrapper(filterFunc).apply(i))
-        .collect(Collectors.toList()));
+            .stream()
+            .filter(i -> throwingMapWrapper(filterFunc).apply(i))
+            .collect(Collectors.toList()));
   }
 
   @Override

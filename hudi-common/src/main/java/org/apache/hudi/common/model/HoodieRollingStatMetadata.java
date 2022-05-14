@@ -18,6 +18,8 @@
 
 package org.apache.hudi.common.model;
 
+import org.apache.hudi.common.util.JsonUtils;
+
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 
@@ -81,12 +83,12 @@ public class HoodieRollingStatMetadata implements Serializable {
       LOG.info("partition path is null for " + partitionToRollingStats.get(null));
       partitionToRollingStats.remove(null);
     }
-    return HoodieCommitMetadata.getObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(this);
+    return JsonUtils.getObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(this);
   }
 
   public HoodieRollingStatMetadata merge(HoodieRollingStatMetadata rollingStatMetadata) {
     for (Map.Entry<String, Map<String, HoodieRollingStat>> stat : rollingStatMetadata.partitionToRollingStats
-        .entrySet()) {
+            .entrySet()) {
       for (Map.Entry<String, HoodieRollingStat> innerStat : stat.getValue().entrySet()) {
         this.addRollingStat(stat.getKey(), innerStat.getValue());
       }

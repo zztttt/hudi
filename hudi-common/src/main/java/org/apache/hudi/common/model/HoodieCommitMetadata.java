@@ -18,17 +18,15 @@
 
 package org.apache.hudi.common.model;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import org.apache.hudi.common.fs.FSUtils;
+import org.apache.hudi.common.util.JsonUtils;
+import org.apache.hudi.common.util.Option;
+import org.apache.hudi.common.util.collection.Pair;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hudi.common.fs.FSUtils;
-import org.apache.hudi.common.util.Option;
-import org.apache.hudi.common.util.collection.Pair;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 
@@ -131,8 +129,8 @@ public class HoodieCommitMetadata implements Serializable {
     HashMap<String, String> fullPaths = new HashMap<>();
     for (Map.Entry<String, String> entry : getFileIdAndRelativePaths().entrySet()) {
       String fullPath = entry.getValue() != null
-          ? FSUtils.getPartitionPath(basePath, entry.getValue()).toString()
-          : null;
+              ? FSUtils.getPartitionPath(basePath, entry.getValue()).toString()
+              : null;
       fullPaths.put(entry.getKey(), fullPath);
     }
     return fullPaths;
@@ -183,7 +181,7 @@ public class HoodieCommitMetadata implements Serializable {
         if (fullPath != null) {
           long blockSize = FSUtils.getFs(fullPath.toString(), hadoopConf).getDefaultBlockSize(fullPath);
           FileStatus fileStatus = new FileStatus(stat.getFileSizeInBytes(), false, 0, blockSize,
-              0, fullPath);
+                  0, fullPath);
           fullPathToFileStatus.put(fullPath.getName(), fileStatus);
         }
       }
@@ -214,7 +212,7 @@ public class HoodieCommitMetadata implements Serializable {
         Path fullPath = relativeFilePath != null ? FSUtils.getPartitionPath(basePath, relativeFilePath) : null;
         if (fullPath != null) {
           FileStatus fileStatus = new FileStatus(stat.getFileSizeInBytes(), false, 0, 0,
-              0, fullPath);
+                  0, fullPath);
           fileIdToFileStatus.put(stat.getFileId(), fileStatus);
         }
       }
@@ -227,7 +225,7 @@ public class HoodieCommitMetadata implements Serializable {
       LOG.info("partition path is null for " + partitionToWriteStats.get(null));
       partitionToWriteStats.remove(null);
     }
-    return getObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(this);
+    return JsonUtils.getObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(this);
   }
 
   public static <T> T fromJsonString(String jsonStr, Class<T> clazz) throws Exception {
@@ -235,7 +233,7 @@ public class HoodieCommitMetadata implements Serializable {
       // For empty commit file (no data or somethings bad happen).
       return clazz.newInstance();
     }
-    return getObjectMapper().readValue(jsonStr, clazz);
+    return JsonUtils.getObjectMapper().readValue(jsonStr, clazz);
   }
 
   // Here the functions are named "fetch" instead of "get", to get avoid of the json conversion.
@@ -416,8 +414,8 @@ public class HoodieCommitMetadata implements Serializable {
       }
     }
     return Pair.of(
-        minEventTime == Long.MAX_VALUE ? Option.empty() : Option.of(minEventTime),
-        maxEventTime == Long.MIN_VALUE ? Option.empty() : Option.of(maxEventTime));
+            minEventTime == Long.MAX_VALUE ? Option.empty() : Option.of(minEventTime),
+            maxEventTime == Long.MIN_VALUE ? Option.empty() : Option.of(maxEventTime));
   }
 
   public HashSet<String> getWritePartitionPaths() {
@@ -457,18 +455,11 @@ public class HoodieCommitMetadata implements Serializable {
     }
   }
 
-  protected static ObjectMapper getObjectMapper() {
-    ObjectMapper mapper = new ObjectMapper();
-    mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-    mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
-    return mapper;
-  }
-
   @Override
   public String toString() {
     return "HoodieCommitMetadata{" + "partitionToWriteStats=" + partitionToWriteStats
-        + ", compacted=" + compacted
-        + ", extraMetadata=" + extraMetadata
-        + ", operationType=" + operationType + '}';
+            + ", compacted=" + compacted
+            + ", extraMetadata=" + extraMetadata
+            + ", operationType=" + operationType + '}';
   }
 }

@@ -30,7 +30,6 @@ import org.apache.hudi.common.fs.NoOpConsistencyGuard;
 import org.apache.hudi.common.model.HoodieRecordPayload;
 import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.model.HoodieTimelineTimeZone;
-import org.apache.hudi.common.model.WriteOperationType;
 import org.apache.hudi.common.table.timeline.HoodieActiveTimeline;
 import org.apache.hudi.common.table.timeline.HoodieArchivedTimeline;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
@@ -86,6 +85,7 @@ public class HoodieTableMetaClient implements Serializable {
   public static final String BOOTSTRAP_INDEX_ROOT_FOLDER_PATH = AUXILIARYFOLDER_NAME + Path.SEPARATOR + ".bootstrap";
   public static final String HEARTBEAT_FOLDER_NAME = METAFOLDER_NAME + Path.SEPARATOR + ".heartbeat";
   public static final String METADATA_TABLE_FOLDER_PATH = METAFOLDER_NAME + Path.SEPARATOR + "metadata";
+  public static final String HASHING_METADATA_FOLDER_NAME = ".bucket_index" + Path.SEPARATOR + "consistent_hashing_metadata";
   public static final String BOOTSTRAP_INDEX_BY_PARTITION_FOLDER_PATH = BOOTSTRAP_INDEX_ROOT_FOLDER_PATH
       + Path.SEPARATOR + ".partitions";
   public static final String BOOTSTRAP_INDEX_BY_FILE_ID_FOLDER_PATH = BOOTSTRAP_INDEX_ROOT_FOLDER_PATH + Path.SEPARATOR
@@ -213,6 +213,13 @@ public class HoodieTableMetaClient implements Serializable {
   }
 
   /**
+   * @return Hashing metadata base path
+   */
+  public String getHashingMetadataPath() {
+    return new Path(metaPath.get(), HASHING_METADATA_FOLDER_NAME).toString();
+  }
+
+  /**
    * @return Temp Folder path
    */
   public String getTempFolderPath() {
@@ -221,7 +228,7 @@ public class HoodieTableMetaClient implements Serializable {
 
   /**
    * Returns Marker folder path.
-   * 
+   *
    * @param instantTs Instant Timestamp
    * @return
    */
@@ -306,7 +313,7 @@ public class HoodieTableMetaClient implements Serializable {
 
   /**
    * Return raw file-system.
-   * 
+   *
    * @return fs
    */
   public FileSystem getRawFs() {
@@ -377,16 +384,15 @@ public class HoodieTableMetaClient implements Serializable {
   /**
    * Validate table properties.
    * @param properties Properties from writeConfig.
-   * @param operationType operation type to be executed.
    */
-  public void validateTableProperties(Properties properties, WriteOperationType operationType) {
-    // once meta fields are disabled, it cant be re-enabled for a given table.
+  public void validateTableProperties(Properties properties) {
+    // Once meta fields are disabled, it cant be re-enabled for a given table.
     if (!getTableConfig().populateMetaFields()
         && Boolean.parseBoolean((String) properties.getOrDefault(HoodieTableConfig.POPULATE_META_FIELDS.key(), HoodieTableConfig.POPULATE_META_FIELDS.defaultValue()))) {
       throw new HoodieException(HoodieTableConfig.POPULATE_META_FIELDS.key() + " already disabled for the table. Can't be re-enabled back");
     }
 
-    // meta fields can be disabled only with SimpleKeyGenerator
+    // Meta fields can be disabled only when {@code SimpleKeyGenerator} is used
     if (!getTableConfig().populateMetaFields()
         && !properties.getProperty(HoodieTableConfig.KEY_GENERATOR_CLASS_NAME.key(), "org.apache.hudi.keygen.SimpleKeyGenerator")
         .equals("org.apache.hudi.keygen.SimpleKeyGenerator")) {
@@ -401,7 +407,7 @@ public class HoodieTableMetaClient implements Serializable {
    * @return Instance of HoodieTableMetaClient
    */
   public static HoodieTableMetaClient initTableAndGetMetaClient(Configuration hadoopConf, String basePath,
-      Properties props) throws IOException {
+                                                                Properties props) throws IOException {
     LOG.info("Initializing " + basePath + " as hoodie table " + basePath);
     Path basePathDir = new Path(basePath);
     final FileSystem fs = FSUtils.getFs(basePath, hadoopConf);
@@ -551,7 +557,7 @@ public class HoodieTableMetaClient implements Serializable {
    * @throws IOException in case of failure
    */
   public List<HoodieInstant> scanHoodieInstantsFromFileSystem(Set<String> includedExtensions,
-      boolean applyLayoutVersionFilters) throws IOException {
+                                                              boolean applyLayoutVersionFilters) throws IOException {
     return scanHoodieInstantsFromFileSystem(metaPath.get(), includedExtensions, applyLayoutVersionFilters);
   }
 
@@ -566,7 +572,7 @@ public class HoodieTableMetaClient implements Serializable {
    * @throws IOException in case of failure
    */
   public List<HoodieInstant> scanHoodieInstantsFromFileSystem(Path timelinePath, Set<String> includedExtensions,
-      boolean applyLayoutVersionFilters) throws IOException {
+                                                              boolean applyLayoutVersionFilters) throws IOException {
     Stream<HoodieInstant> instantStream = Arrays.stream(
         HoodieTableMetaClient
             .scanFiles(getFs(), timelinePath, path -> {
@@ -698,7 +704,7 @@ public class HoodieTableMetaClient implements Serializable {
     private Boolean urlEncodePartitioning;
     private HoodieTimelineTimeZone commitTimeZone;
     private Boolean partitionMetafileUseBaseFormat;
-    private Boolean dropPartitionColumnsWhenWrite;
+    private Boolean shouldDropPartitionColumns;
     private String metadataPartitions;
     private String inflightMetadataPartitions;
 
@@ -820,8 +826,8 @@ public class HoodieTableMetaClient implements Serializable {
       return this;
     }
 
-    public PropertyBuilder setDropPartitionColumnsWhenWrite(Boolean dropPartitionColumnsWhenWrite) {
-      this.dropPartitionColumnsWhenWrite = dropPartitionColumnsWhenWrite;
+    public PropertyBuilder setShouldDropPartitionColumns(Boolean shouldDropPartitionColumns) {
+      this.shouldDropPartitionColumns = shouldDropPartitionColumns;
       return this;
     }
 
@@ -854,9 +860,9 @@ public class HoodieTableMetaClient implements Serializable {
 
     public PropertyBuilder fromMetaClient(HoodieTableMetaClient metaClient) {
       return setTableType(metaClient.getTableType())
-        .setTableName(metaClient.getTableConfig().getTableName())
-        .setArchiveLogFolder(metaClient.getArchivePath())
-        .setPayloadClassName(metaClient.getTableConfig().getPayloadClass());
+          .setTableName(metaClient.getTableConfig().getTableName())
+          .setArchiveLogFolder(metaClient.getArchivePath())
+          .setPayloadClassName(metaClient.getTableConfig().getPayloadClass());
     }
 
     public PropertyBuilder fromProperties(Properties properties) {
@@ -933,15 +939,12 @@ public class HoodieTableMetaClient implements Serializable {
       if (hoodieConfig.contains(HoodieTableConfig.PARTITION_METAFILE_USE_BASE_FORMAT)) {
         setPartitionMetafileUseBaseFormat(hoodieConfig.getBoolean(HoodieTableConfig.PARTITION_METAFILE_USE_BASE_FORMAT));
       }
-
       if (hoodieConfig.contains(HoodieTableConfig.DROP_PARTITION_COLUMNS)) {
-        setDropPartitionColumnsWhenWrite(hoodieConfig.getBoolean(HoodieTableConfig.DROP_PARTITION_COLUMNS));
+        setShouldDropPartitionColumns(hoodieConfig.getBoolean(HoodieTableConfig.DROP_PARTITION_COLUMNS));
       }
-
       if (hoodieConfig.contains(HoodieTableConfig.TABLE_METADATA_PARTITIONS)) {
         setMetadataPartitions(hoodieConfig.getString(HoodieTableConfig.TABLE_METADATA_PARTITIONS));
       }
-
       if (hoodieConfig.contains(HoodieTableConfig.TABLE_METADATA_PARTITIONS_INFLIGHT)) {
         setInflightMetadataPartitions(hoodieConfig.getString(HoodieTableConfig.TABLE_METADATA_PARTITIONS_INFLIGHT));
       }
@@ -1026,15 +1029,12 @@ public class HoodieTableMetaClient implements Serializable {
       if (null != partitionMetafileUseBaseFormat) {
         tableConfig.setValue(HoodieTableConfig.PARTITION_METAFILE_USE_BASE_FORMAT, partitionMetafileUseBaseFormat.toString());
       }
-
-      if (null != dropPartitionColumnsWhenWrite) {
-        tableConfig.setValue(HoodieTableConfig.DROP_PARTITION_COLUMNS, Boolean.toString(dropPartitionColumnsWhenWrite));
+      if (null != shouldDropPartitionColumns) {
+        tableConfig.setValue(HoodieTableConfig.DROP_PARTITION_COLUMNS, Boolean.toString(shouldDropPartitionColumns));
       }
-
       if (null != metadataPartitions) {
         tableConfig.setValue(HoodieTableConfig.TABLE_METADATA_PARTITIONS, metadataPartitions);
       }
-
       if (null != inflightMetadataPartitions) {
         tableConfig.setValue(HoodieTableConfig.TABLE_METADATA_PARTITIONS_INFLIGHT, inflightMetadataPartitions);
       }

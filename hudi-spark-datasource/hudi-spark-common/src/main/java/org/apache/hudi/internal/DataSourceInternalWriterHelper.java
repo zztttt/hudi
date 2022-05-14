@@ -57,7 +57,7 @@ public class DataSourceInternalWriterHelper {
   private Map<String, String> extraMetadata;
 
   public DataSourceInternalWriterHelper(String instantTime, HoodieWriteConfig writeConfig, StructType structType,
-      SparkSession sparkSession, Configuration configuration, Map<String, String> extraMetadata) {
+                                        SparkSession sparkSession, Configuration configuration, Map<String, String> extraMetadata) {
     this.instantTime = instantTime;
     this.operationType = WriteOperationType.BULK_INSERT;
     this.extraMetadata = extraMetadata;
@@ -66,7 +66,7 @@ public class DataSourceInternalWriterHelper {
     writeClient.startCommitWithTime(instantTime);
 
     this.metaClient = HoodieTableMetaClient.builder().setConf(configuration).setBasePath(writeConfig.getBasePath()).build();
-    this.metaClient.validateTableProperties(writeConfig.getProps(), WriteOperationType.BULK_INSERT);
+    this.metaClient.validateTableProperties(writeConfig.getProps());
     this.hoodieTable = HoodieSparkTable.create(writeConfig, new HoodieSparkEngineContext(new JavaSparkContext(sparkSession.sparkContext())), metaClient);
   }
 
@@ -98,8 +98,8 @@ public class DataSourceInternalWriterHelper {
   public void createInflightCommit() {
     metaClient.getActiveTimeline().transitionRequestedToInflight(
         new HoodieInstant(State.REQUESTED,
-                          CommitUtils.getCommitActionType(operationType, metaClient.getTableType()),
-                          instantTime), Option.empty());
+            CommitUtils.getCommitActionType(operationType, metaClient.getTableType()),
+            instantTime), Option.empty());
   }
 
   public HoodieTable getHoodieTable() {

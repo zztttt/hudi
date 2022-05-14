@@ -255,7 +255,7 @@ public abstract class BaseHoodieWriteClient<T extends HoodieRecordPayload, I, K,
   }
 
   protected void commit(HoodieTable table, String commitActionType, String instantTime, HoodieCommitMetadata metadata,
-                      List<HoodieWriteStat> stats) throws IOException {
+                        List<HoodieWriteStat> stats) throws IOException {
     LOG.info("Committing " + instantTime + " action " + commitActionType);
     HoodieActiveTimeline activeTimeline = table.getActiveTimeline();
     // Finalize write
@@ -489,7 +489,7 @@ public abstract class BaseHoodieWriteClient<T extends HoodieRecordPayload, I, K,
    * @param metaClient
    */
   protected void preWrite(String instantTime, WriteOperationType writeOperationType,
-      HoodieTableMetaClient metaClient) {
+                          HoodieTableMetaClient metaClient) {
     setOperationType(writeOperationType);
     this.lastCompletedTxnAndMetadata = TransactionUtils.getLastCompletedTxnInstantAndMetadata(metaClient);
     this.pendingInflightAndRequestedInstants = TransactionUtils.getInflightAndRequestedInstants(metaClient);
@@ -971,8 +971,8 @@ public abstract class BaseHoodieWriteClient<T extends HoodieRecordPayload, I, K,
     metaClient.getActiveTimeline().filterPendingCompactionTimeline().lastInstant().ifPresent(latestPending ->
         ValidationUtils.checkArgument(
             HoodieTimeline.compareTimestamps(latestPending.getTimestamp(), HoodieTimeline.LESSER_THAN, instantTime),
-        "Latest pending compaction instant time must be earlier than this instant time. Latest Compaction :"
-            + latestPending + ",  Ingesting at " + instantTime));
+            "Latest pending compaction instant time must be earlier than this instant time. Latest Compaction :"
+                + latestPending + ",  Ingesting at " + instantTime));
     if (config.getFailedWritesCleanPolicy().isLazy()) {
       this.heartbeatClient.start(instantTime);
     }
@@ -981,7 +981,7 @@ public abstract class BaseHoodieWriteClient<T extends HoodieRecordPayload, I, K,
       metaClient.getActiveTimeline().createRequestedReplaceCommit(instantTime, actionType);
     } else {
       metaClient.getActiveTimeline().createNewInstant(new HoodieInstant(HoodieInstant.State.REQUESTED, actionType,
-              instantTime));
+          instantTime));
     }
   }
 
@@ -1465,7 +1465,7 @@ public abstract class BaseHoodieWriteClient<T extends HoodieRecordPayload, I, K,
     }
 
     // Validate table properties
-    metaClient.validateTableProperties(config.getProps(), operationType);
+    metaClient.validateTableProperties(config.getProps());
     // Make sure that FS View is in sync
     table.getHoodieView().sync();
 
@@ -1497,14 +1497,14 @@ public abstract class BaseHoodieWriteClient<T extends HoodieRecordPayload, I, K,
   }
 
   /**
-     * Sets write schema from last instant since deletes may not have schema set in the config.
-     */
+   * Sets write schema from last instant since deletes may not have schema set in the config.
+   */
   protected void setWriteSchemaForDeletes(HoodieTableMetaClient metaClient) {
     try {
       HoodieActiveTimeline activeTimeline = metaClient.getActiveTimeline();
       Option<HoodieInstant> lastInstant =
           activeTimeline.filterCompletedInstants().filter(s -> s.getAction().equals(metaClient.getCommitActionType())
-          || s.getAction().equals(HoodieActiveTimeline.REPLACE_COMMIT_ACTION))
+                  || s.getAction().equals(HoodieActiveTimeline.REPLACE_COMMIT_ACTION))
               .lastInstant();
       if (lastInstant.isPresent()) {
         HoodieCommitMetadata commitMetadata = HoodieCommitMetadata.fromBytes(

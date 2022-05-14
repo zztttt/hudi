@@ -66,6 +66,10 @@ public class HoodieCommonTestHarness {
     dataGen = new HoodieTestDataGenerator();
   }
 
+  protected void initTestDataGenerator(String[] partitionPaths) {
+    dataGen = new HoodieTestDataGenerator(partitionPaths);
+  }
+
   /**
    * Cleanups test data generator.
    *
@@ -104,7 +108,7 @@ public class HoodieCommonTestHarness {
   }
 
   protected SyncableFileSystemView getFileSystemView(HoodieTableMetaClient metaClient, HoodieTimeline timeline)
-      throws IOException {
+          throws IOException {
     return getFileSystemView(timeline, true);
   }
 

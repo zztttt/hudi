@@ -120,8 +120,9 @@ public class FSUtils {
 
   /**
    * Check if table already exists in the given path.
+   *
    * @param path base path of the table.
-   * @param fs instance of {@link FileSystem}.
+   * @param fs   instance of {@link FileSystem}.
    * @return {@code true} if table exists. {@code false} otherwise.
    */
   public static boolean isTableExists(String path, FileSystem fs) throws IOException {
@@ -143,7 +144,7 @@ public class FSUtils {
   /**
    * Makes path qualified w/ {@link FileSystem}'s URI
    *
-   * @param fs instance of {@link FileSystem} path belongs to
+   * @param fs   instance of {@link FileSystem} path belongs to
    * @param path path to be qualified
    * @return qualified path, prefixed w/ the URI of the target FS object provided
    */
@@ -235,11 +236,11 @@ public class FSUtils {
   /**
    * Obtain all the partition paths, that are present in this table, denoted by presence of
    * {@link HoodiePartitionMetadata#HOODIE_PARTITION_METAFILE_PREFIX}.
-   *
+   * <p>
    * If the basePathStr is a subdirectory of .hoodie folder then we assume that the partitions of an internal
    * table (a hoodie table within the .hoodie directory) are to be obtained.
    *
-   * @param fs FileSystem instance
+   * @param fs          FileSystem instance
    * @param basePathStr base directory
    */
   public static List<String> getAllFoldersWithPartitionMetaFile(FileSystem fs, String basePathStr) throws IOException {
@@ -262,9 +263,9 @@ public class FSUtils {
    * Recursively processes all files in the base-path. If excludeMetaFolder is set, the meta-folder and all its subdirs
    * are skipped
    *
-   * @param fs File System
-   * @param basePathStr Base-Path
-   * @param consumer Callback for processing
+   * @param fs                File System
+   * @param basePathStr       Base-Path
+   * @param consumer          Callback for processing
    * @param excludeMetaFolder Exclude .hoodie folder
    * @throws IOException -
    */
@@ -346,6 +347,10 @@ public class FSUtils {
    */
   public static String createNewFileIdPfx() {
     return UUID.randomUUID().toString();
+  }
+
+  public static String createNewFileId(String idPfx, int id) {
+    return String.format("%s-%d", idPfx, id);
   }
 
   /**
@@ -452,7 +457,7 @@ public class FSUtils {
   }
 
   public static String makeLogFileName(String fileId, String logFileExtension, String baseCommitTime, int version,
-      String writeToken) {
+                                       String writeToken) {
     String suffix = (writeToken == null)
         ? String.format("%s_%s%s.%d", fileId, baseCommitTime, logFileExtension, version)
         : String.format("%s_%s%s.%d_%s", fileId, baseCommitTime, logFileExtension, version, writeToken);
@@ -515,7 +520,7 @@ public class FSUtils {
    * Get all the log files for the passed in file-id in the partition path.
    */
   public static Stream<HoodieLogFile> getAllLogFiles(FileSystem fs, Path partitionPath, final String fileId,
-      final String logFileExtension, final String baseCommitTime) throws IOException {
+                                                     final String logFileExtension, final String baseCommitTime) throws IOException {
     try {
       PathFilter pathFilter = path -> path.getName().startsWith("." + fileId) && path.getName().contains(logFileExtension);
       return Arrays.stream(fs.listStatus(partitionPath, pathFilter))
@@ -530,7 +535,7 @@ public class FSUtils {
    * Get the latest log version for the fileId in the partition path.
    */
   public static Option<Pair<Integer, String>> getLatestLogVersion(FileSystem fs, Path partitionPath,
-      final String fileId, final String logFileExtension, final String baseCommitTime) throws IOException {
+                                                                  final String fileId, final String logFileExtension, final String baseCommitTime) throws IOException {
     Option<HoodieLogFile> latestLogFile =
         getLatestLogFile(getAllLogFiles(fs, partitionPath, fileId, logFileExtension, baseCommitTime));
     if (latestLogFile.isPresent()) {
@@ -544,7 +549,7 @@ public class FSUtils {
    * computes the next log version for the specified fileId in the partition path.
    */
   public static int computeNextLogVersion(FileSystem fs, Path partitionPath, final String fileId,
-      final String logFileExtension, final String baseCommitTime) throws IOException {
+                                          final String logFileExtension, final String baseCommitTime) throws IOException {
     Option<Pair<Integer, String>> currentVersionWithWriteToken =
         getLatestLogVersion(fs, partitionPath, fileId, logFileExtension, baseCommitTime);
     // handle potential overflow
@@ -638,13 +643,14 @@ public class FSUtils {
 
   /**
    * Get the FS implementation for this table.
-   * @param path  Path String
-   * @param hadoopConf  Serializable Hadoop Configuration
+   *
+   * @param path                   Path String
+   * @param hadoopConf             Serializable Hadoop Configuration
    * @param consistencyGuardConfig Consistency Guard Config
    * @return HoodieWrapperFileSystem
    */
   public static HoodieWrapperFileSystem getFs(String path, SerializableConfiguration hadoopConf,
-      ConsistencyGuardConfig consistencyGuardConfig) {
+                                              ConsistencyGuardConfig consistencyGuardConfig) {
     FileSystem fileSystem = FSUtils.getFs(path, hadoopConf.newCopy());
     return new HoodieWrapperFileSystem(fileSystem,
         consistencyGuardConfig.isConsistencyCheckEnabled()
@@ -654,7 +660,8 @@ public class FSUtils {
 
   /**
    * Helper to filter out paths under metadata folder when running fs.globStatus.
-   * @param fs  File System
+   *
+   * @param fs       File System
    * @param globPath Glob Path
    * @return the file status list of globPath exclude the meta folder
    * @throws IOException when having trouble listing the path
@@ -670,9 +677,9 @@ public class FSUtils {
    * Deletes a directory by deleting sub-paths in parallel on the file system.
    *
    * @param hoodieEngineContext {@code HoodieEngineContext} instance
-   * @param fs file system
-   * @param dirPath directory path
-   * @param parallelism parallelism to use for sub-paths
+   * @param fs                  file system
+   * @param dirPath             directory path
+   * @param parallelism         parallelism to use for sub-paths
    * @return {@code true} if the directory is delete; {@code false} otherwise.
    */
   public static boolean deleteDir(
@@ -697,12 +704,12 @@ public class FSUtils {
    * Processes sub-path in parallel.
    *
    * @param hoodieEngineContext {@code HoodieEngineContext} instance
-   * @param fs file system
-   * @param dirPath directory path
-   * @param parallelism parallelism to use for sub-paths
-   * @param subPathPredicate predicate to use to filter sub-paths for processing
-   * @param pairFunction actual processing logic for each sub-path
-   * @param <T> type of result to return for each sub-path
+   * @param fs                  file system
+   * @param dirPath             directory path
+   * @param parallelism         parallelism to use for sub-paths
+   * @param subPathPredicate    predicate to use to filter sub-paths for processing
+   * @param pairFunction        actual processing logic for each sub-path
+   * @param <T>                 type of result to return for each sub-path
    * @return a map of sub-path to result of the processing
    */
   public static <T> Map<String, T> parallelizeSubPathProcess(
@@ -781,19 +788,16 @@ public class FSUtils {
 
     for (int i = 0; i <= expectLevel; i++) {
       result = FSUtils.parallelizeFilesProcess(hoodieEngineContext, fs, parallelism,
-          pairOfSubPathAndConf -> {
-            Path path = new Path(pairOfSubPathAndConf.getKey());
-            try {
-              FileSystem fileSystem = path.getFileSystem(pairOfSubPathAndConf.getValue().get());
-              return Arrays.stream(fileSystem.listStatus(path))
+        pairOfSubPathAndConf -> {
+          Path path = new Path(pairOfSubPathAndConf.getKey());
+          try {
+            FileSystem fileSystem = path.getFileSystem(pairOfSubPathAndConf.getValue().get());
+            return Arrays.stream(fileSystem.listStatus(path))
                 .collect(Collectors.toList());
-            } catch (IOException e) {
-              throw new HoodieIOException("Failed to list " + path, e);
-            }
-          },
-          levelPaths)
-          .values().stream()
-          .flatMap(list -> list.stream()).collect(Collectors.toList());
+          } catch (IOException e) {
+            throw new HoodieIOException("Failed to list " + path, e);
+          }
+        }, levelPaths).values().stream().flatMap(list -> list.stream()).collect(Collectors.toList());
       if (i < expectLevel) {
         levelPaths = result.stream()
             .filter(FileStatus::isDirectory)

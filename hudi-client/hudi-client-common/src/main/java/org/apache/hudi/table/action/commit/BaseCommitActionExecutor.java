@@ -71,7 +71,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I, K, O, R>
-    extends BaseActionExecutor<T, I, K, O, R> {
+        extends BaseActionExecutor<T, I, K, O, R> {
 
   private static final Logger LOG = LogManager.getLogger(BaseCommitActionExecutor.class);
 
@@ -94,9 +94,9 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I,
     this.lastCompletedTxn = TransactionUtils.getLastCompletedTxnInstantAndMetadata(table.getMetaClient());
     this.pendingInflightAndRequestedInstants = TransactionUtils.getInflightAndRequestedInstants(table.getMetaClient());
     this.pendingInflightAndRequestedInstants.remove(instantTime);
-    if (table.getStorageLayout().doesNotSupport(operationType)) {
+    if (!table.getStorageLayout().writeOperationSupported(operationType)) {
       throw new UnsupportedOperationException("Executor " + this.getClass().getSimpleName()
-          + " is not compatible with table layout " + table.getStorageLayout().getClass().getSimpleName());
+              + " is not compatible with table layout " + table.getStorageLayout().getClass().getSimpleName());
     }
   }
 
@@ -109,7 +109,7 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I,
    * Create a new WorkloadProfile metadata file instead of using HoodieCommitMetadata
    */
   void saveWorkloadProfileMetadataToInflight(WorkloadProfile profile, String instantTime)
-      throws HoodieCommitException {
+          throws HoodieCommitException {
     try {
       HoodieCommitMetadata metadata = new HoodieCommitMetadata();
       profile.getOutputPartitionPaths().forEach(path -> {
@@ -122,22 +122,22 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I,
         Map<String, Pair<String, Long>> updateLocationMap = partitionStat.getUpdateLocationToCount();
         Map<String, Pair<String, Long>> insertLocationMap = partitionStat.getInsertLocationToCount();
         Stream.concat(updateLocationMap.keySet().stream(), insertLocationMap.keySet().stream())
-            .distinct()
-            .forEach(fileId -> {
-              HoodieWriteStat writeStat = new HoodieWriteStat();
-              writeStat.setFileId(fileId);
-              Pair<String, Long> updateLocation = updateLocationMap.get(fileId);
-              Pair<String, Long> insertLocation = insertLocationMap.get(fileId);
-              // TODO : Write baseCommitTime is possible here ?
-              writeStat.setPrevCommit(updateLocation != null ? updateLocation.getKey() : insertLocation.getKey());
-              if (updateLocation != null) {
-                writeStat.setNumUpdateWrites(updateLocation.getValue());
-              }
-              if (insertLocation != null) {
-                writeStat.setNumInserts(insertLocation.getValue());
-              }
-              metadata.addWriteStat(path, writeStat);
-            });
+                .distinct()
+                .forEach(fileId -> {
+                  HoodieWriteStat writeStat = new HoodieWriteStat();
+                  writeStat.setFileId(fileId);
+                  Pair<String, Long> updateLocation = updateLocationMap.get(fileId);
+                  Pair<String, Long> insertLocation = insertLocationMap.get(fileId);
+                  // TODO : Write baseCommitTime is possible here ?
+                  writeStat.setPrevCommit(updateLocation != null ? updateLocation.getKey() : insertLocation.getKey());
+                  if (updateLocation != null) {
+                    writeStat.setNumUpdateWrites(updateLocation.getValue());
+                  }
+                  if (insertLocation != null) {
+                    writeStat.setNumInserts(insertLocation.getValue());
+                  }
+                  metadata.addWriteStat(path, writeStat);
+                });
       });
       metadata.setOperationType(operationType);
 
@@ -145,8 +145,8 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I,
       String commitActionType = getCommitActionType();
       HoodieInstant requested = new HoodieInstant(State.REQUESTED, commitActionType, instantTime);
       activeTimeline.transitionRequestedToInflight(requested,
-          Option.of(metadata.toJsonString().getBytes(StandardCharsets.UTF_8)),
-          config.shouldAllowMultiWriteOnSameInstant());
+              Option.of(metadata.toJsonString().getBytes(StandardCharsets.UTF_8)),
+              config.shouldAllowMultiWriteOnSameInstant());
     } catch (IOException io) {
       throw new HoodieCommitException("Failed to commit " + instantTime + " unable to save inflight metadata ", io);
     }
@@ -166,7 +166,7 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I,
     }
     throw new HoodieIOException("Precommit validation not implemented for all engines yet");
   }
-  
+
   protected void commitOnAutoCommit(HoodieWriteMetadata result) {
     // validate commit action before committing result
     runPrecommitValidators(result);
@@ -180,14 +180,14 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I,
 
   protected void autoCommit(Option<Map<String, String>> extraMetadata, HoodieWriteMetadata<O> result) {
     final Option<HoodieInstant> inflightInstant = Option.of(new HoodieInstant(State.INFLIGHT,
-        getCommitActionType(), instantTime));
+            getCommitActionType(), instantTime));
     this.txnManager.beginTransaction(inflightInstant,
-        lastCompletedTxn.isPresent() ? Option.of(lastCompletedTxn.get().getLeft()) : Option.empty());
+            lastCompletedTxn.isPresent() ? Option.of(lastCompletedTxn.get().getLeft()) : Option.empty());
     try {
       setCommitMetadata(result);
       // reload active timeline so as to get all updates after current transaction have started. hence setting last arg to true.
       TransactionUtils.resolveWriteConflictIfAny(table, this.txnManager.getCurrentTransactionOwner(),
-          result.getCommitMetadata(), config, this.txnManager.getLastCompletedTransactionOwner(), true, pendingInflightAndRequestedInstants);
+              result.getCommitMetadata(), config, this.txnManager.getLastCompletedTransactionOwner(), true, pendingInflightAndRequestedInstants);
       commit(extraMetadata, result);
     } finally {
       this.txnManager.endTransaction(inflightInstant);
@@ -225,10 +225,10 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I,
   }
 
   protected abstract Iterator<List<WriteStatus>> handleInsert(String idPfx,
-      Iterator<HoodieRecord<T>> recordItr) throws Exception;
+                                                              Iterator<HoodieRecord<T>> recordItr) throws Exception;
 
   protected abstract Iterator<List<WriteStatus>> handleUpdate(String partitionPath, String fileId,
-      Iterator<HoodieRecord<T>> recordItr) throws IOException;
+                                                              Iterator<HoodieRecord<T>> recordItr) throws IOException;
 
   protected HoodieWriteMetadata<HoodieData<WriteStatus>> executeClustering(HoodieClusteringPlan clusteringPlan) {
     HoodieInstant instant = HoodieTimeline.getReplaceCommitRequestedInstant(instantTime);
@@ -241,10 +241,10 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I,
 
     final Schema schema = HoodieAvroUtils.addMetadataFields(new Schema.Parser().parse(config.getSchema()));
     HoodieWriteMetadata<HoodieData<WriteStatus>> writeMetadata = (
-        (ClusteringExecutionStrategy<T, HoodieData<HoodieRecord<T>>, HoodieData<HoodieKey>, HoodieData<WriteStatus>>)
-            ReflectionUtils.loadClass(config.getClusteringExecutionStrategyClass(),
-                new Class<?>[] {HoodieTable.class, HoodieEngineContext.class, HoodieWriteConfig.class}, table, context, config))
-        .performClustering(clusteringPlan, schema, instantTime);
+            (ClusteringExecutionStrategy<T, HoodieData<HoodieRecord<T>>, HoodieData<HoodieKey>, HoodieData<WriteStatus>>)
+                    ReflectionUtils.loadClass(config.getClusteringExecutionStrategyClass(),
+                            new Class<?>[] {HoodieTable.class, HoodieEngineContext.class, HoodieWriteConfig.class}, table, context, config))
+            .performClustering(clusteringPlan, schema, instantTime);
     HoodieData<WriteStatus> writeStatusList = writeMetadata.getWriteStatuses();
     HoodieData<WriteStatus> statuses = updateIndex(writeStatusList, writeMetadata);
     writeMetadata.setWriteStats(statuses.map(WriteStatus::getStat).collectAsList());
@@ -253,7 +253,7 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I,
     commitOnAutoCommit(writeMetadata);
     if (!writeMetadata.getCommitMetadata().isPresent()) {
       HoodieCommitMetadata commitMetadata = CommitUtils.buildMetadata(writeMetadata.getWriteStats().get(), writeMetadata.getPartitionToReplaceFileIds(),
-          extraMetadata, operationType, getSchemaToStoreInCommit(), getCommitActionType());
+              extraMetadata, operationType, getSchemaToStoreInCommit(), getCommitActionType());
       writeMetadata.setCommitMetadata(Option.of(commitMetadata));
     }
     return writeMetadata;
@@ -270,13 +270,13 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I,
 
   private Map<String, List<String>> getPartitionToReplacedFileIds(HoodieClusteringPlan clusteringPlan, HoodieWriteMetadata<HoodieData<WriteStatus>> writeMetadata) {
     Set<HoodieFileGroupId> newFilesWritten = writeMetadata.getWriteStats().get().stream()
-        .map(s -> new HoodieFileGroupId(s.getPartitionPath(), s.getFileId())).collect(Collectors.toSet());
+            .map(s -> new HoodieFileGroupId(s.getPartitionPath(), s.getFileId())).collect(Collectors.toSet());
 
     return ClusteringUtils.getFileGroupsFromClusteringPlan(clusteringPlan)
-        .filter(fg -> "org.apache.hudi.client.clustering.run.strategy.SparkSingleFileSortExecutionStrategy"
-            .equals(config.getClusteringExecutionStrategyClass())
-            || !newFilesWritten.contains(fg))
-        .collect(Collectors.groupingBy(HoodieFileGroupId::getPartitionPath, Collectors.mapping(HoodieFileGroupId::getFileId, Collectors.toList())));
+            .filter(fg -> "org.apache.hudi.client.clustering.run.strategy.SparkSingleFileSortExecutionStrategy"
+                    .equals(config.getClusteringExecutionStrategyClass())
+                    || !newFilesWritten.contains(fg))
+            .collect(Collectors.groupingBy(HoodieFileGroupId::getPartitionPath, Collectors.mapping(HoodieFileGroupId::getFileId, Collectors.toList())));
   }
 
   /**
@@ -287,9 +287,9 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I,
   private void validateWriteResult(HoodieClusteringPlan clusteringPlan, HoodieWriteMetadata<HoodieData<WriteStatus>> writeMetadata) {
     if (writeMetadata.getWriteStatuses().isEmpty()) {
       throw new HoodieClusteringException("Clustering plan produced 0 WriteStatus for " + instantTime
-          + " #groups: " + clusteringPlan.getInputGroups().size() + " expected at least "
-          + clusteringPlan.getInputGroups().stream().mapToInt(HoodieClusteringGroup::getNumOutputFileGroups).sum()
-          + " write statuses");
+              + " #groups: " + clusteringPlan.getInputGroups().size() + " expected at least "
+              + clusteringPlan.getInputGroups().stream().mapToInt(HoodieClusteringGroup::getNumOutputFileGroups).sum()
+              + " write statuses");
     }
   }
 

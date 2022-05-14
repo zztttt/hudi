@@ -64,7 +64,7 @@ public class HoodieJavaRDD<T> extends HoodieData<T> {
    * @return a new instance containing the {@link JavaRDD<T>} instance.
    */
   public static <T> HoodieJavaRDD<T> of(
-      List<T> data, HoodieSparkEngineContext context, int parallelism) {
+          List<T> data, HoodieSparkEngineContext context, int parallelism) {
     return new HoodieJavaRDD<>(context.getJavaSparkContext().parallelize(data, parallelism));
   }
 
@@ -113,6 +113,11 @@ public class HoodieJavaRDD<T> extends HoodieData<T> {
   }
 
   @Override
+  public <O> HoodieData<O> mapPartitions(SerializableFunction<Iterator<T>, Iterator<O>> func) {
+    return HoodieJavaRDD.of(rddData.mapPartitions(func::apply));
+  }
+
+  @Override
   public <O> HoodieData<O> flatMap(SerializableFunction<T, Iterator<O>> func) {
     return HoodieJavaRDD.of(rddData.flatMap(e -> func.apply(e)));
   }
@@ -138,8 +143,8 @@ public class HoodieJavaRDD<T> extends HoodieData<T> {
   @Override
   public <O> HoodieData<T> distinctWithKey(SerializableFunction<T, O> keyGetter, int parallelism) {
     return mapToPair(i -> Pair.of(keyGetter.apply(i), i))
-        .reduceByKey((value1, value2) -> value1, parallelism)
-        .values();
+            .reduceByKey((value1, value2) -> value1, parallelism)
+            .values();
   }
 
   @Override

@@ -99,8 +99,9 @@ public class TestCopyOnWriteActionExecutor extends HoodieClientTestBase {
 
   private static final Logger LOG = LogManager.getLogger(TestCopyOnWriteActionExecutor.class);
   private static final Schema SCHEMA = getSchemaFromResource(TestCopyOnWriteActionExecutor.class, "/exampleSchema.avsc");
+
   private static final Stream<Arguments> indexType() {
-    HoodieIndex.IndexType[] data = new HoodieIndex.IndexType[] {
+    HoodieIndex.IndexType[] data = new HoodieIndex.IndexType[]{
         HoodieIndex.IndexType.BLOOM,
         HoodieIndex.IndexType.BUCKET
     };
@@ -148,7 +149,10 @@ public class TestCopyOnWriteActionExecutor extends HoodieClientTestBase {
     props.putAll(indexConfig.build().getProps());
     if (indexType.equals(HoodieIndex.IndexType.BUCKET)) {
       props.setProperty(KeyGeneratorOptions.RECORDKEY_FIELD_NAME.key(), "_row_key");
-      indexConfig.fromProperties(props).withIndexKeyField("_row_key").withBucketNum("1");
+      indexConfig.fromProperties(props)
+          .withIndexKeyField("_row_key")
+          .withBucketNum("1")
+          .withBucketIndexEngineType(HoodieIndex.BucketIndexEngineType.SIMPLE);
       props.putAll(indexConfig.build().getProps());
       props.putAll(HoodieLayoutConfig.newBuilder().fromProperties(props)
           .withLayoutType(HoodieStorageLayout.LayoutType.BUCKET.name())
@@ -266,7 +270,7 @@ public class TestCopyOnWriteActionExecutor extends HoodieClientTestBase {
   }
 
   private FileStatus[] getIncrementalFiles(String partitionPath, String startCommitTime, int numCommitsToPull)
-          throws Exception {
+      throws Exception {
     // initialize parquet input format
     HoodieParquetInputFormat hoodieInputFormat = new HoodieParquetInputFormat();
     JobConf jobConf = new JobConf(hadoopConf);
@@ -279,15 +283,15 @@ public class TestCopyOnWriteActionExecutor extends HoodieClientTestBase {
 
   private void setupIncremental(JobConf jobConf, String startCommit, int numberOfCommitsToPull) {
     String modePropertyName =
-            String.format(HoodieHiveUtils.HOODIE_CONSUME_MODE_PATTERN, HoodieTestUtils.RAW_TRIPS_TEST_NAME);
+        String.format(HoodieHiveUtils.HOODIE_CONSUME_MODE_PATTERN, HoodieTestUtils.RAW_TRIPS_TEST_NAME);
     jobConf.set(modePropertyName, HoodieHiveUtils.INCREMENTAL_SCAN_MODE);
 
     String startCommitTimestampName =
-            String.format(HoodieHiveUtils.HOODIE_START_COMMIT_PATTERN, HoodieTestUtils.RAW_TRIPS_TEST_NAME);
+        String.format(HoodieHiveUtils.HOODIE_START_COMMIT_PATTERN, HoodieTestUtils.RAW_TRIPS_TEST_NAME);
     jobConf.set(startCommitTimestampName, startCommit);
 
     String maxCommitPulls =
-            String.format(HoodieHiveUtils.HOODIE_MAX_COMMIT_PATTERN, HoodieTestUtils.RAW_TRIPS_TEST_NAME);
+        String.format(HoodieHiveUtils.HOODIE_MAX_COMMIT_PATTERN, HoodieTestUtils.RAW_TRIPS_TEST_NAME);
     jobConf.setInt(maxCommitPulls, numberOfCommitsToPull);
   }
 
